@@ -190,24 +190,9 @@ def main():
         logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
         return
 
-    # 6. Get the column names for input/target.
-    dataset_columns = dataset_name_mapping.get(data_args.dataset_name, None)
-    if data_args.image_column is None:
-        image_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
-    else:
-        image_column = data_args.image_column
-        if image_column not in column_names:
-            raise ValueError(
-                f"--image_column' value '{data_args.image_column}' needs to be one of: {', '.join(column_names)}"
-            )
-    if data_args.caption_column is None:
-        caption_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
-    else:
-        caption_column = data_args.caption_column
-        if caption_column not in column_names:
-            raise ValueError(
-                f"--caption_column' value '{data_args.caption_column}' needs to be one of: {', '.join(column_names)}"
-            )
+
+    caption_column = data_args.caption_column
+    image_column = data_args.image_column
 
     # 7. Preprocessing the datasets.
     # Initialize torchvision transforms and jit it for faster processing.
