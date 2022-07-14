@@ -1,8 +1,11 @@
+"""
+Slightly edited version of the original script found here:
+https://github.com/huggingface/transformers/blob/main/examples/pytorch/contrastive-image-text/run_clip.py
+"""
+
 import logging
 import os
 import sys
-from dataclasses import dataclass, field
-from typing import Optional
 from augmentation import Transform, collate_fn
 from arguments import ModelArguments, DataTrainingArguments
 import torch
@@ -55,6 +58,10 @@ def main():
         model_args, data_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    os.environ["HF_DATASETS_CACHE"] = data_args.cache_datasets
+    os.environ['TRANSFORMERS_CACHE'] = data_args.cache_transformers
+    os.environ["WANDB_API_KEY"] = data_args.wandb
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
@@ -271,29 +278,6 @@ def main():
 
         # Transform images on the fly as doing it on the whole dataset takes too much time.
         eval_dataset.set_transform(transform_images)
-
-    if training_args.do_predict:
-        if "test" not in dataset:
-            raise ValueError("--do_predict requires a test dataset")
-        test_dataset = dataset["test"]
-        if data_args.max_eval_samples is not None:
-            max_eval_samples = min(len(test_dataset), data_args.max_eval_samples)
-            test_dataset = test_dataset.select(range(max_eval_samples))
-
-        test_dataset = test_dataset.filter(
-            filter_corrupt_images, batched=True, num_proc=data_args.preprocessing_num_workers
-        )
-        test_dataset = test_dataset.map(
-            function=tokenize_captions,
-            batched=True,
-            num_proc=data_args.preprocessing_num_workers,
-            remove_columns=[col for col in column_names if col != image_column],
-            load_from_cache_file=not data_args.overwrite_cache,
-            desc="Running tokenizer on test dataset",
-        )
-
-        # Transform images on the fly as doing it on the whole dataset takes too much time.
-        test_dataset.set_transform(transform_images)
 
     # 8. Initalize our trainer
     trainer = Trainer(

@@ -69,6 +69,15 @@ class DataTrainingArguments:
     train_file: Optional[str] = field(
         default=None, metadata={"help": "The input training data file (a jsonlines file)."}
     )
+    wandb: str = field(
+        default=None, metadata={"help": "WandB api key"}
+    )
+    cache_datasets: str = field(
+        default=None, metadata={"help": "cache location for datasets."}
+    )
+    cache_transformers: str = field(
+        default=None, metadata={"help": "Cache location for transformers."}
+    )
     validation_file: Optional[str] = field(
         default=None,
         metadata={"help": "An optional input evaluation data file (a jsonlines file)."},
