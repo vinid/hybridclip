@@ -126,8 +126,7 @@ def main():
         data_files["train"] = data_args.train_file
     if data_args.validation_file is not None:
         data_files["validation"] = data_args.validation_file
-    if data_args.test_file is not None:
-        data_files["test"] = data_args.test_file
+
     dataset = load_dataset(
         extension,
         data_files=data_files,
