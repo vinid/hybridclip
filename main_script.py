@@ -302,8 +302,6 @@ def main():
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         data_collator=collate_fn,
-
-        report_to="wandb"
     )
 
     # 9. Training
