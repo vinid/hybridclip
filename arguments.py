@@ -83,7 +83,7 @@ class DataTrainingArguments:
         metadata={"help": "An optional input evaluation data file (a jsonlines file)."},
     )
     max_seq_length: Optional[int] = field(
-        default=200,
+        default=140,
         metadata={
             "help": (
                 "The maximum total input sequence length after tokenization. Sequences longer "
