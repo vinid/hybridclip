@@ -3,6 +3,12 @@
 
 import torch
 from PIL import Image
+from torchvision.transforms import (
+    RandomAffine,
+    RandomPerspective,
+    RandomAutocontrast,
+    RandomEqualize,
+)
 from torchvision.transforms import CenterCrop, ConvertImageDtype, Normalize, Resize
 from torchvision.transforms.functional import InterpolationMode
 
@@ -12,6 +18,22 @@ class Transform(torch.nn.Module):
         self.transforms = torch.nn.Sequential(
             Resize([image_size], interpolation=InterpolationMode.BICUBIC),
             CenterCrop(image_size),
+            RandomAffine(
+                degrees=15,
+                translate=(0.1, 0.1),
+                scale=(0.8, 1.2),
+                shear=(-15, 15, -15, 15),
+                interpolation=InterpolationMode.BILINEAR,
+                fill=127,
+            ),
+            RandomPerspective(
+                distortion_scale=0.3,
+                p=0.3,
+                interpolation=InterpolationMode.BILINEAR,
+                fill=127,
+            ),
+            RandomAutocontrast(p=0.3),
+            RandomEqualize(p=0.3),
             ConvertImageDtype(torch.float),
             Normalize(mean, std),
         )
