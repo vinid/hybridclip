@@ -12,14 +12,10 @@ import torch
 from datasets import load_dataset
 from PIL import Image
 from torchvision.io import ImageReadMode, read_image
+import transformers
 from transformers import (
     VisionTextDualEncoderModel,
     VisionTextDualEncoderProcessor,
-    AutoTokenizer,
-    AutoFeatureExtractor
-)
-import transformers
-from transformers import (
     AutoFeatureExtractor,
     AutoModel,
     AutoTokenizer,
@@ -28,10 +24,8 @@ from transformers import (
     TrainingArguments,
     set_seed,
 )
-from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
-
 
 logger = logging.getLogger(__name__)
 
@@ -59,13 +53,13 @@ def main():
     else:
         model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    os.environ["HF_DATASETS_CACHE"] = data_args.cache_datasets
-    os.environ['TRANSFORMERS_CACHE'] = data_args.cache_transformers
     os.environ["WANDB_API_KEY"] = data_args.wandb
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
     send_example_telemetry("run_clip", model_args, data_args)
+
+    # Creates and combine the encoders. These are saved to be used later
 
     model = VisionTextDualEncoderModel.from_vision_text_pretrained(
         model_args.vision_encoder, model_args.text_encoder
@@ -79,6 +73,7 @@ def main():
     model.save_pretrained(model_args.model_name_or_path)
     processor.save_pretrained(model_args.model_name_or_path)
 
+    # remove this to save ram
     del model
     del processor
     del feat_ext
@@ -103,21 +98,6 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    # 3. Detecting last checkpoint and eventualy continue from last checkpoint
-    last_checkpoint = None
-    if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
-        last_checkpoint = get_last_checkpoint(training_args.output_dir)
-        if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
-            raise ValueError(
-                f"Output directory ({training_args.output_dir}) already exists and is not empty. "
-                "Use --overwrite_output_dir to overcome."
-            )
-        elif last_checkpoint is not None and training_args.resume_from_checkpoint is None:
-            logger.info(
-                f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
-                "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
-            )
-
     # 4. Load dataset
     # Get the datasets: you can either provide your own CSV/JSON training and evaluation files (see below)
     # or just provide the name of one of the public datasets available on the hub at https://huggingface.co/datasets/
@@ -126,7 +106,6 @@ def main():
     # For CSV/JSON files this script will use the first column for the full image path and the second column for the
     # captions (unless you specify column names for this with the `image_column` and `caption_column` arguments).
     #
-
     extension = "csv"
     data_files = {}
     if data_args.train_file is not None:
@@ -197,7 +176,6 @@ def main():
         logger.info("There is nothing to do. Please pass `do_train`, `do_eval` and/or `do_predict`.")
         return
 
-
     caption_column = data_args.caption_column
     image_column = data_args.image_column
 
@@ -207,6 +185,12 @@ def main():
         config.vision_config.image_size, feature_extractor.image_mean, feature_extractor.image_std
     )
     image_transformations = torch.jit.script(image_transformations)
+
+    # we apply augmentation only on the training set
+    image_transformations_augmented = Transform(
+        config.vision_config.image_size, feature_extractor.image_mean, feature_extractor.image_std, augment=True
+    )
+    image_transformations_augmented = torch.jit.script(image_transformations_augmented)
 
     # Preprocessing the datasets.
     # We need to tokenize input captions and transform the images.
@@ -220,6 +204,11 @@ def main():
     def transform_images(examples):
         images = [read_image(image_file, mode=ImageReadMode.RGB) for image_file in examples[image_column]]
         examples["pixel_values"] = [image_transformations(image) for image in images]
+        return examples
+
+    def transform_images_augment(examples):
+        images = [read_image(image_file, mode=ImageReadMode.RGB) for image_file in examples[image_column]]
+        examples["pixel_values"] = [image_transformations_augmented(image) for image in images]
         return examples
 
     def filter_corrupt_images(examples):
@@ -254,7 +243,7 @@ def main():
         )
 
         # Transform images on the fly as doing it on the whole dataset takes too much time.
-        train_dataset.set_transform(transform_images)
+        train_dataset.set_transform(transform_images_augment)
 
     if training_args.do_eval:
         if "validation" not in dataset:
@@ -290,12 +279,7 @@ def main():
 
     # 9. Training
     if training_args.do_train:
-        checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
-            checkpoint = last_checkpoint
-        train_result = trainer.train(resume_from_checkpoint=checkpoint)
+        train_result = trainer.train()
         trainer.save_model()
         trainer.log_metrics("train", train_result.metrics)
         trainer.save_metrics("train", train_result.metrics)
@@ -306,6 +290,7 @@ def main():
         metrics = trainer.evaluate()
         trainer.log_metrics("eval", metrics)
         trainer.save_metrics("eval", metrics)
+
 
 if __name__ == "__main__":
     main()

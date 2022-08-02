@@ -1,5 +1,8 @@
 # Hybrid CLIP
 
+Slightly edited version of the hybrid CLIP model implemented here:
+https://github.com/huggingface/transformers/blob/main/examples/pytorch/contrastive-image-text/run_clip.py
+
 
 ```bash
 pip install git+https://github.com/huggingface/transformers
@@ -27,8 +30,6 @@ python  hybridclip/main_script.py \
     --weight_decay 0.1 \
     --overwrite_output_dir \
     --report_to="wandb" \
-    --cache_datasets="/example" \
-    --cache_transformers="/example" \ 
     --wandb = "key" \
     --vision_encoder="openai/clip-vit-base-patch32" \
     --text_encoder="emilyalsentzer/Bio_ClinicalBERT"

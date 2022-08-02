@@ -1,8 +1,4 @@
-# We use torchvision for faster image pre-processing. The transforms are implemented as nn.Module,
-# so we jit it to be faster.
-
 import torch
-from PIL import Image
 from torchvision.transforms import (
     RandomAffine,
     RandomPerspective,
@@ -12,31 +8,46 @@ from torchvision.transforms import (
 from torchvision.transforms import CenterCrop, ConvertImageDtype, Normalize, Resize
 from torchvision.transforms.functional import InterpolationMode
 
+
 class Transform(torch.nn.Module):
-    def __init__(self, image_size, mean, std):
+
+    def __init__(self, image_size, mean, std, augment=False):
+        """
+        :param image_size:
+        :param mean:
+        :param std:
+        :param augment: True => applies augmentation. Useful to differentiate training and validation
+        """
         super().__init__()
-        self.transforms = torch.nn.Sequential(
-            Resize([image_size], interpolation=InterpolationMode.BICUBIC),
-            CenterCrop(image_size),
-            RandomAffine(
-                degrees=15,
-                translate=(0.1, 0.1),
-                scale=(0.8, 1.2),
-                shear=(-15, 15, -15, 15),
-                interpolation=InterpolationMode.BILINEAR,
-                fill=127,
-            ),
-            RandomPerspective(
-                distortion_scale=0.3,
-                p=0.3,
-                interpolation=InterpolationMode.BILINEAR,
-                fill=127,
-            ),
-            RandomAutocontrast(p=0.3),
-            RandomEqualize(p=0.3),
-            ConvertImageDtype(torch.float),
-            Normalize(mean, std),
-        )
+        if augment:
+            self.transforms = torch.nn.Sequential(
+                Resize([image_size], interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(image_size),
+                RandomAffine(
+                    degrees=15,
+                    translate=(0.1, 0.1),
+                    scale=(0.8, 1.2),
+                    shear=(-15, 15, -15, 15),
+                    interpolation=InterpolationMode.BILINEAR,
+                    fill=127,
+                ),
+                RandomPerspective(
+                    distortion_scale=0.3,
+                    p=0.3,
+                    interpolation=InterpolationMode.BILINEAR,
+                    fill=127,
+                ),
+                RandomAutocontrast(p=0.3),
+                RandomEqualize(p=0.3),
+                ConvertImageDtype(torch.float),
+                Normalize(mean, std),
+            )
+        else:
+            self.transforms = torch.nn.Sequential(
+                Resize([image_size], interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(image_size),
+                ConvertImageDtype(torch.float),
+                Normalize(mean, std))
 
     def forward(self, x) -> torch.Tensor:
         with torch.no_grad():
